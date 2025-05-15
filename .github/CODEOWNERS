@@ -1,0 +1,6 @@
+# CODEOWNERS - define who reviews what
+# Format: <pattern> @github-username(s)
+
+# Default owner for everything
+* @danijeljw
+
