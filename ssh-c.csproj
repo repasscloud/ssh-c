@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.0.3</Version>
+    <Version>0.0.4</Version>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 
     <!-- Self-contained trimmed single binary settings -->
@@ -29,8 +29,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- This tells the trimmer to preserve reflection metadata for the main assembly -->
+    <!-- Tell the trimmer to preserve reflection metadata for the main assembly -->
     <TrimmerRootAssembly Include="ssh-c" />
+  </ItemGroup>
+
+  <!-- Exclude non-project files from publish output -->
+  <ItemGroup>
+    <None Remove=".github/**" />
+    <None Remove="scripts/**" />
+    <None Remove="ssh-c-tests.sh" />
+    <None Remove="*.txt" />
+    <None Remove="bump-version.zsh" />
+    <None Remove="*.md" />
+    <None Remove="LICENSE" />
   </ItemGroup>
 
 </Project>
