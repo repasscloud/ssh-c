@@ -1,70 +1,64 @@
-// Helpers/VersionReader.cs
 using System;
 using System.Net.Http;
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Reflection;
-using System.Threading.Tasks;
-using ssh_c.Models;
-using ssh_c.Helpers;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace ssh_c.Helpers;
 
 public static class VersionReader
 {
-    private const string GitHubRepo = "danijeljw/ssh-c";
+    private const string GitHubApiUrl = "https://api.github.com/repos/repasscloud/ssh-c/releases/latest";
 
     public static string GetVersion()
     {
-        var version = Assembly
-            .GetExecutingAssembly()
+        var raw = Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-            .InformationalVersion;
+            .InformationalVersion ?? "?.?.?";
 
-        return version ?? "?.?.?";
+        return raw.Split('+')[0];
     }
 
     public static async Task CheckForUpdates()
     {
+        var currentVersion = GetVersion();
+
         try
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("ssh-c-cli");
+            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ssh-c", currentVersion));
 
-            var url = $"https://api.github.com/repos/{GitHubRepo}/releases/latest";
-            var httpResponse = await client.GetAsync(url);
+            using var response = await client.GetAsync(GitHubApiUrl);
+            response.EnsureSuccessStatusCode();
 
-            if (!httpResponse.IsSuccessStatusCode)
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+
+            var latestTag = doc.RootElement.GetProperty("tag_name").GetString()?.Trim();
+
+            if (string.IsNullOrWhiteSpace(latestTag))
             {
-                Console.WriteLine("❌ Failed to fetch release info.");
-                return;
-            }
-
-            var stream = await httpResponse.Content.ReadAsStreamAsync();
-            var response = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.GitHubRelease);
-
-            if (response == null || string.IsNullOrWhiteSpace(response.TagName))
-            {
-                Console.WriteLine("❌ Failed to parse release data.");
-                return;
-            }
-
-            var current = GetVersion();
-            var latest = response.TagName.TrimStart('v');
-
-            if (current == latest)
-            {
-                Console.WriteLine($"✅ ssh-c is up to date (v{current})");
+                Console.WriteLine("❌ Failed to read latest version from GitHub.");
             }
             else
             {
-                Console.WriteLine($"⬆️  Update available: v{latest} (you have v{current})");
-                Console.WriteLine($"🔗 https://github.com/{GitHubRepo}/releases/latest");
+                var latestVersion = latestTag.TrimStart('v');
+
+                if (currentVersion != latestVersion)
+                {
+                    Console.WriteLine($"⬆️  Update available: v{latestVersion} (you have v{currentVersion})");
+                    Console.WriteLine("🔗 https://github.com/repasscloud/ssh-c/releases/latest");
+                }
+                else
+                {
+                    Console.WriteLine($"✅ ssh-c is up to date (v{currentVersion})");
+                }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Could not check for updates: {ex.Message}");
+            Console.WriteLine($"❌ Failed to fetch release info: {ex.Message}");
         }
     }
 }
