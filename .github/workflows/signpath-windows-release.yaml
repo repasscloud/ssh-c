@@ -1,4 +1,4 @@
-name: SignPath Windows Release
+name: Build ssh-c Binaries
 
 on:
   push:
@@ -6,16 +6,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-sign:
-    name: Build and Sign Windows EXE
+  build-all:
+    name: Build for ${{ matrix.runtime }}
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        runtime: [win-x64, win-x86, win-arm64]
-
-    env:
-      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        runtime:
+          - linux-x64
+          - linux-musl-x64
+          - linux-musl-arm64
+          - linux-arm
+          - linux-arm64
+          - win-x64
+          - win-x86
+          - win-arm64
 
     steps:
       - name: Checkout source
@@ -29,52 +34,60 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Publish Windows ${{ matrix.runtime }} EXE
+      - name: Publish ${{ matrix.runtime }} Binary
         run: >
-          dotnet publish ssh-c.csproj \
-            -c Release \
-            -r ${{ matrix.runtime }} \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:PublishTrimmed=true \
-            -p:EnableCompressionInSingleFile=true \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
-            -o publish/${{ matrix.runtime }}
+          dotnet publish ssh-c.csproj
+          -c Release
+          -r ${{ matrix.runtime }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:PublishTrimmed=true
+          -p:EnableCompressionInSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/${{ matrix.runtime }}
 
-      - name: Rename binary before signing
-        run: mv publish/${{ matrix.runtime }}/com.repasscloud.ssh-c.exe publish/${{ matrix.runtime }}/ssh-c.exe
+      - name: Rename binary to ssh-c or ssh-c.exe
+        run: |
+          path=publish/${{ matrix.runtime }}
+          if [ -f "$path/com.repasscloud.ssh-c" ]; then
+            mv "$path/com.repasscloud.ssh-c" "$path/ssh-c"
+          elif [ -f "$path/com.repasscloud.ssh-c.exe" ]; then
+            mv "$path/com.repasscloud.ssh-c.exe" "$path/ssh-c.exe"
+          else
+            echo "❌ No output binary found to rename."
+            exit 1
+          fi
 
-      - name: Install SignPath PowerShell module
-        shell: pwsh
-        run: >
-          Install-Module -Name SignPath -RequiredVersion 4.4.1 -Force -Scope CurrentUser
-
-      - name: Sign EXE via SignPath
-        shell: pwsh
-        run: >
-          Import-Module SignPath; 
-          Submit-SigningRequest `
-            -InputArtifactPath "publish/${{ matrix.runtime }}/ssh-c.exe" `
-            -ApiToken "$env:SIGNPATH_API_TOKEN" `
-            -OrganizationId "7986306f-df77-4bb0-b011-dc2e6289232e" `
-            -ProjectSlug "SSH-C" `
-            -SigningPolicySlug "ssh-c_DEV_Release" `
-            -OutputArtifactPath "publish/${{ matrix.runtime }}/ssh-c.signed.exe" `
-            -WaitForCompletion
-
-      - name: Replace original EXE with signed version
-        run: >
-          rm publish/${{ matrix.runtime }}/ssh-c.exe && \
-          mv publish/${{ matrix.runtime }}/ssh-c.signed.exe publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe
+      - name: Make binary executable (if not Windows)
+        run: |
+          path=publish/${{ matrix.runtime }}
+          if [ -f "$path/ssh-c" ]; then
+            chmod +x "$path/ssh-c"
+          fi
 
       - name: Generate SHA256 checksum
-        run: >
-          sha256sum publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe > publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe.sha256
+        run: |
+          path=publish/${{ matrix.runtime }}
+          if [ -f "$path/ssh-c" ]; then
+            sha256sum "$path/ssh-c" > "$path/ssh-c_${{ matrix.runtime }}.sha256"
+          elif [ -f "$path/ssh-c.exe" ]; then
+            sha256sum "$path/ssh-c.exe" > "$path/ssh-c_${{ matrix.runtime }}.sha256"
+          else
+            echo "❌ Binary not found for checksum."
+            exit 1
+          fi
 
-      - name: Upload Signed EXE and Checksum
+      - name: Zip binary and checksum
+        run: |
+          cd publish/${{ matrix.runtime }}
+          if [ -f ssh-c ]; then
+            zip ssh-c_${{ matrix.runtime }}.zip ssh-c ssh-c_${{ matrix.runtime }}.sha256
+          elif [ -f ssh-c.exe ]; then
+            zip ssh-c_${{ matrix.runtime }}.zip ssh-c.exe ssh-c_${{ matrix.runtime }}.sha256
+          fi
+
+      - name: Upload Zipped Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ssh-c-${{ matrix.runtime }}-signed
-          path: |
-            publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe
-            publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe.sha256
+          name: ssh-c-${{ matrix.runtime }}-unsigned
+          path: publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.zip
