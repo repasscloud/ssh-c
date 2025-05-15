@@ -67,6 +67,7 @@ ssh-c prod-server
 ## 🔄 Updating
 
 Run anytime to check for newer versions:
+
 ```bash
 ssh-c --check-updates
 ```
