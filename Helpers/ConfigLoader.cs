@@ -142,10 +142,4 @@ public static class ConfigLoader
         SaveHostConfig(newHost);
         Console.WriteLine($"✅ Added config for '{name}'");
     }
-
-    private class ConfigRoot
-    {
-        public List<SshHostConfig>? Hosts { get; set; }
-    }
 }
-
