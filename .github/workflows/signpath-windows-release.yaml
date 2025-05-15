@@ -10,6 +10,10 @@ jobs:
     name: Build and Sign Windows EXE
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        runtime: [win-x64, win-x86, win-arm64]
+
     env:
       SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
 
@@ -25,39 +29,49 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Publish Windows EXE
-        run: dotnet publish ssh-c.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=true /p:EnableCompressionInSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true -o publish/win-x64
+      - name: Publish Windows ${{ matrix.runtime }} EXE
+        run: >
+          dotnet publish ssh-c.csproj
+          -c Release
+          -r ${{ matrix.runtime }}
+          --self-contained true
+          /p:PublishSingleFile=true
+          /p:PublishTrimmed=true
+          /p:EnableCompressionInSingleFile=true
+          /p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/${{ matrix.runtime }}
 
       - name: Install SignPath PowerShell module
         shell: pwsh
-        run: |
+        run: >
           Install-Module -Name SignPath -RequiredVersion 4.4.1 -Force -Scope CurrentUser
 
       - name: Sign EXE via SignPath
         shell: pwsh
-        run: |
-          Import-Module SignPath
+        run: >
+          Import-Module SignPath; 
           Submit-SigningRequest `
-            -InputArtifactPath "publish/win-x64/ssh-c.exe" `
+            -InputArtifactPath "publish/${{ matrix.runtime }}/ssh-c.exe" `
             -ApiToken "$env:SIGNPATH_API_TOKEN" `
             -OrganizationId "7986306f-df77-4bb0-b011-dc2e6289232e" `
             -ProjectSlug "SSH-C" `
             -SigningPolicySlug "ssh-c_DEV_Release" `
-            -OutputArtifactPath "publish/win-x64/ssh-c.signed.exe" `
+            -OutputArtifactPath "publish/${{ matrix.runtime }}/ssh-c.signed.exe" `
             -WaitForCompletion
 
       - name: Replace original EXE with signed version
-        run: |
-          rm publish/win-x64/ssh-c.exe
-          mv publish/win-x64/ssh-c.signed.exe publish/win-x64/ssh-c.exe
+        run: >
+          rm publish/${{ matrix.runtime }}/ssh-c.exe && 
+          mv publish/${{ matrix.runtime }}/ssh-c.signed.exe publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe
 
       - name: Generate SHA256 checksum
-        run: sha256sum publish/win-x64/ssh-c.exe > publish/win-x64/ssh-c.exe.sha256
+        run: >
+          sha256sum publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe > publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe.sha256
 
       - name: Upload Signed EXE and Checksum
         uses: actions/upload-artifact@v4
         with:
-          name: ssh-c-windows-signed
+          name: ssh-c-${{ matrix.runtime }}-signed
           path: |
-            publish/win-x64/ssh-c.exe
-            publish/win-x64/ssh-c.exe.sha256
+            publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe
+            publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe.sha256

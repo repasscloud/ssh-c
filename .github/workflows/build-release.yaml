@@ -51,59 +51,6 @@ jobs:
             publish/${{ matrix.runtime }}/ssh-c-${{ matrix.runtime }}.zip
             publish/${{ matrix.runtime }}/ssh-c-${{ matrix.runtime }}.sha256
 
-  installer:
-    name: Generate install scripts
-    runs-on: ubuntu-latest
-    needs: release
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Create install.sh script
-        run: |
-          cat << EOF > install.sh
-          #!/bin/bash
-          set -e
-          PLATFORM=\$(uname | tr '[:upper:]' '[:lower:]')
-          ARCH=\$(uname -m)
-
-          case "\$PLATFORM" in
-            linux)  RID="linux-x64";;
-            darwin)
-              if [[ "\$ARCH" == "arm64" ]]; then
-                RID="osx-arm64"
-              else
-                RID="osx-x64"
-              fi
-              ;;
-            msys*|cygwin*|mingw*) RID="win-x64";;
-            *) echo "Unsupported OS"; exit 1;;
-          esac
-
-          curl -LO https://github.com/${{ github.repository }}/releases/latest/download/ssh-c-\$RID.zip
-          unzip ssh-c-\$RID.zip
-          chmod +x ssh-c
-          mv ssh-c /usr/local/bin/ssh-c
-          echo "✅ ssh-c installed to /usr/local/bin/ssh-c"
-          EOF
-
-      - name: Create install.ps1 script (Windows)
-        run: |
-          echo '@echo off' > install.ps1
-          echo 'set RID=win-x64' >> install.ps1
-          echo 'powershell -Command "Invoke-WebRequest https://github.com/${{ github.repository }}/releases/latest/download/ssh-c-%RID%.zip -OutFile ssh-c.zip"' >> install.ps1
-          echo 'powershell -Command "Expand-Archive ssh-c.zip -DestinationPath . -Force"' >> install.ps1
-          echo 'move /Y ssh-c.exe C:\\ProgramData\\ssh-c\\ssh-c.exe' >> install.ps1
-          echo 'echo ssh-c installed to C:\\ProgramData\\ssh-c\\ssh-c.exe' >> install.ps1
-
-      - name: Upload installer scripts
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            install.sh
-            install.ps1
-
   changelog:
     name: Generate Changelog
     runs-on: ubuntu-latest
@@ -119,26 +66,26 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.changelog }}
 
-  scoop:
-    name: Scoop manifest push
-    runs-on: ubuntu-latest
-    needs: release
-    steps:
-      - name: Update scoop manifest (TODO)
-        run: echo "Add your scoop manifest updater here"
+  # scoop:
+  #   name: Scoop manifest push
+  #   runs-on: ubuntu-latest
+  #   needs: release
+  #   steps:
+  #     - name: Update scoop manifest (TODO)
+  #       run: echo "Add your scoop manifest updater here"
 
-  homebrew:
-    name: Homebrew formula push
-    runs-on: ubuntu-latest
-    needs: release
-    steps:
-      - name: Update Homebrew formula (TODO)
-        run: echo "Add your homebrew formula updater here"
+  # homebrew:
+  #   name: Homebrew formula push
+  #   runs-on: ubuntu-latest
+  #   needs: release
+  #   steps:
+  #     - name: Update Homebrew formula (TODO)
+  #       run: echo "Add your homebrew formula updater here"
 
-  aur:
-    name: AUR PKGBUILD push
-    runs-on: ubuntu-latest
-    needs: release
-    steps:
-      - name: Update AUR PKGBUILD (TODO)
-        run: echo "Add your AUR updater here"
+  # aur:
+  #   name: AUR PKGBUILD push
+  #   runs-on: ubuntu-latest
+  #   needs: release
+  #   steps:
+  #     - name: Update AUR PKGBUILD (TODO)
+  #       run: echo "Add your AUR updater here"
