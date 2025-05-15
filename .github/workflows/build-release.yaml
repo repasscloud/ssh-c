@@ -32,16 +32,19 @@ jobs:
             -c Release \
             -r ${{ matrix.runtime }} \
             --self-contained true \
-            /p:PublishSingleFile=true \
-            /p:PublishTrimmed=true \
-            /p:EnableCompressionInSingleFile=true \
-            /p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
             -o publish/${{ matrix.runtime }}
+
+      - name: Rename binary
+        run: mv publish/${{ matrix.runtime }}/com.repasscloud.ssh-c publish/${{ matrix.runtime }}/ssh-c
 
       - name: Archive binary
         run: |
           cd publish/${{ matrix.runtime }}
-          zip ssh-c-${{ matrix.runtime }}.zip ssh-c*
+          zip ssh-c-${{ matrix.runtime }}.zip ssh-c
           sha256sum ssh-c-${{ matrix.runtime }}.zip > ssh-c-${{ matrix.runtime }}.sha256
 
       - name: Upload Release Assets
@@ -74,11 +77,14 @@ jobs:
             -c Release \
             -r ${{ matrix.runtime }} \
             --self-contained true \
-            /p:PublishSingleFile=true \
-            /p:PublishTrimmed=true \
-            /p:EnableCompressionInSingleFile=true \
-            /p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
             -o publish/${{ matrix.runtime }}
+
+      - name: Rename binary
+        run: mv publish/${{ matrix.runtime }}/com.repasscloud.ssh-c publish/${{ matrix.runtime }}/ssh-c
 
       - name: Archive binary
         run: |

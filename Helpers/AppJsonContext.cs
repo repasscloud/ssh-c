@@ -5,6 +5,10 @@ using ssh_c.Models;
 
 namespace ssh_c.Helpers;
 
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    WriteIndented = true,
+    GenerationMode = JsonSourceGenerationMode.Default)]
 [JsonSerializable(typeof(ConfigRoot))]
 [JsonSerializable(typeof(SshHostConfig))]
 [JsonSerializable(typeof(List<SshHostConfig>))]

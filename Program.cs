@@ -23,7 +23,13 @@ public class Program
             if (args.Contains("--version") || args.Contains("-v"))
             {
                 var version = VersionReader.GetVersion();
-                WriteLine($"ssh-c version {version}");
+                WriteLine($@"
+🛡️  ssh-c CLI
+Version:     v{version}
+Copyright:   © {DateTime.UtcNow.Year} Repass Cloud
+License:     MIT
+Website:     https://github.com/repasscloud/ssh-c
+");
                 return;
             }
 

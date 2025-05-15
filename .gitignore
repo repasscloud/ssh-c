@@ -484,3 +484,4 @@ $RECYCLE.BIN/
 *.swp
 ssh-c-test.sh
 x.txt
+*.zip

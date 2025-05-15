@@ -39,27 +39,29 @@ jobs:
           -c Release
           -r ${{ matrix.runtime }}
           --self-contained true
-          /p:PublishSingleFile=true
-          /p:PublishTrimmed=true
-          /p:EnableCompressionInSingleFile=true
-          /p:IncludeNativeLibrariesForSelfExtract=true
+          -p:PublishSingleFile=true
+          -p:PublishTrimmed=true
+          -p:EnableCompressionInSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish/${{ matrix.runtime }}
 
-      - name: Make binary executable and rename
+      - name: Rename published binary to ssh-c
         run: |
-          chmod +x publish/${{ matrix.runtime }}/ssh-c
-          mv publish/${{ matrix.runtime }}/ssh-c publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}
+          mv publish/${{ matrix.runtime }}/com.repasscloud.ssh-c publish/${{ matrix.runtime }}/ssh-c
+
+      - name: Make binary executable
+        run: chmod +x publish/${{ matrix.runtime }}/ssh-c
 
       - name: Verify binary format
-        run: file publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}
+        run: file publish/${{ matrix.runtime }}/ssh-c
 
       - name: Generate SHA256 checksum
-        run: sha256sum publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }} > publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.sha256
+        run: sha256sum publish/${{ matrix.runtime }}/ssh-c > publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.sha256
 
       - name: Zip binary and checksum
         run: |
           cd publish/${{ matrix.runtime }}
-          zip ssh-c_${{ matrix.runtime }}.zip ssh-c_${{ matrix.runtime }} ssh-c_${{ matrix.runtime }}.sha256
+          zip ssh-c_${{ matrix.runtime }}.zip ssh-c ssh-c_${{ matrix.runtime }}.sha256
 
       - name: Upload Zipped Artifacts
         uses: actions/upload-artifact@v4
