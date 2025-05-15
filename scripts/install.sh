@@ -18,16 +18,29 @@ esac
 
 echo "📦 Downloading ssh-c for $RID..."
 curl -LO "https://github.com/repasscloud/ssh-c/releases/latest/download/ssh-c-$RID.zip"
+
+# Remove quarantine from ZIP first (before unzip)
+if [[ "$PLATFORM" == "darwin" ]]; then
+  echo "🧼 Removing quarantine from ZIP..."
+  xattr -d com.apple.quarantine "ssh-c-$RID.zip" || true
+fi
+
 unzip -o "ssh-c-$RID.zip"
 chmod +x ssh-c
+
+# Fully strip xattrs from binary before install (macOS only)
+if [[ "$PLATFORM" == "darwin" ]]; then
+  echo "🚫 Stripping Gatekeeper metadata..."
+  xattr -cr ssh-c || true
+fi
 
 # Move to final location
 sudo mv ssh-c /usr/local/bin/ssh-c
 
-# macOS Gatekeeper bypass
+# Confirm clean install
 if [[ "$PLATFORM" == "darwin" ]]; then
-  echo "🚫 Bypassing Gatekeeper..."
-  sudo xattr -d com.apple.quarantine /usr/local/bin/ssh-c || true
+  echo "🔍 Final xattrs on binary:"
+  xattr /usr/local/bin/ssh-c || echo "✅ No extended attributes"
 fi
 
 echo "✅ Installed ssh-c to /usr/local/bin/ssh-c"

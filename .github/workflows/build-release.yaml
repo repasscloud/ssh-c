@@ -9,13 +9,13 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build and Publish Release Assets
+  release-linux-windows:
+    name: Build Release Assets (Linux + Windows)
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        runtime: [win-x64, linux-x64, osx-x64, osx-arm64]
+        runtime: [win-x64, linux-x64]
 
     steps:
       - name: Checkout
@@ -51,6 +51,48 @@ jobs:
             publish/${{ matrix.runtime }}/ssh-c-${{ matrix.runtime }}.zip
             publish/${{ matrix.runtime }}/ssh-c-${{ matrix.runtime }}.sha256
 
+  release-macos:
+    name: Build Release Assets (macOS)
+    runs-on: macos-latest
+
+    strategy:
+      matrix:
+        runtime: [osx-x64, osx-arm64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish (${{ matrix.runtime }})
+        run: |
+          dotnet publish ssh-c.csproj \
+            -c Release \
+            -r ${{ matrix.runtime }} \
+            --self-contained true \
+            /p:PublishSingleFile=true \
+            /p:PublishTrimmed=true \
+            /p:EnableCompressionInSingleFile=true \
+            /p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish/${{ matrix.runtime }}
+
+      - name: Archive binary
+        run: |
+          cd publish/${{ matrix.runtime }}
+          zip ssh-c-${{ matrix.runtime }}.zip ssh-c
+          shasum -a 256 ssh-c-${{ matrix.runtime }}.zip > ssh-c-${{ matrix.runtime }}.sha256
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            publish/${{ matrix.runtime }}/ssh-c-${{ matrix.runtime }}.zip
+            publish/${{ matrix.runtime }}/ssh-c-${{ matrix.runtime }}.sha256
+
   changelog:
     name: Generate Changelog
     runs-on: ubuntu-latest
@@ -65,6 +107,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ steps.changelog.outputs.changelog }}
+
 
   # scoop:
   #   name: Scoop manifest push
