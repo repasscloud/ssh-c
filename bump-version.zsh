@@ -43,3 +43,13 @@ echo "🔧 Bumping version: $currentVersion → $newVersion"
 gsed -i'' -E "s|<Version>[0-9]+\.[0-9]+\.[0-9]+</Version>|<Version>$newVersion</Version>|" "$CSProjFile"
 
 echo "✅ Updated version in $CSProjFile → $newVersion"
+
+# Set script root dir
+SCRIPT_DIR=$(cd -- "$(dirname -- "${(%):-%x}")" &> /dev/null && pwd)
+
+# Update git repo
+git add "$SCRIPT_DIR"
+git commit -m "🔧 Bumping version: $currentVersion → $newVersion"
+git push -u origin main
+git tag -s "v$newVersion" -m "Release v$newVersion" && git push origin "v$newVersion" && \
+echo "🔖 Tagged and pushed release: https://github.com/repasscloud/ssh-c/releases/tag/v$newVersion"

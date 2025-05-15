@@ -31,15 +31,18 @@ jobs:
 
       - name: Publish Windows ${{ matrix.runtime }} EXE
         run: >
-          dotnet publish ssh-c.csproj
-          -c Release
-          -r ${{ matrix.runtime }}
-          --self-contained true
-          /p:PublishSingleFile=true
-          /p:PublishTrimmed=true
-          /p:EnableCompressionInSingleFile=true
-          /p:IncludeNativeLibrariesForSelfExtract=true
-          -o publish/${{ matrix.runtime }}
+          dotnet publish ssh-c.csproj \
+            -c Release \
+            -r ${{ matrix.runtime }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish/${{ matrix.runtime }}
+
+      - name: Rename binary before signing
+        run: mv publish/${{ matrix.runtime }}/com.repasscloud.ssh-c.exe publish/${{ matrix.runtime }}/ssh-c.exe
 
       - name: Install SignPath PowerShell module
         shell: pwsh
@@ -61,7 +64,7 @@ jobs:
 
       - name: Replace original EXE with signed version
         run: >
-          rm publish/${{ matrix.runtime }}/ssh-c.exe && 
+          rm publish/${{ matrix.runtime }}/ssh-c.exe && \
           mv publish/${{ matrix.runtime }}/ssh-c.signed.exe publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.exe
 
       - name: Generate SHA256 checksum

@@ -9,7 +9,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.0.7</Version>
+    <Version>0.0.6</Version>
+    <AssemblyName>com.repasscloud.ssh-c</AssemblyName>
+    <ApplicationId>com.repasscloud.ssh-c</ApplicationId>
+    <MacOSBundleIdentifier>com.repasscloud.ssh-c</MacOSBundleIdentifier>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 
     <!-- Self-contained trimmed single binary settings -->
@@ -30,7 +33,7 @@
 
   <ItemGroup>
     <!-- Tell the trimmer to preserve reflection metadata for the main assembly -->
-    <TrimmerRootAssembly Include="ssh-c" />
+    <TrimmerRootAssembly Include="com.repasscloud.ssh-c" />
   </ItemGroup>
 
   <!-- Exclude non-project files from publish output -->
