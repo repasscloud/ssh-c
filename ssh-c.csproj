@@ -44,6 +44,8 @@
     <None Remove="*.txt" />
     <None Remove="bump-version.zsh" />
     <None Remove="*.md" />
+    <None Remove="*.sh" />
+    <None Remove="*.zsh" />
     <None Remove="LICENSE" />
   </ItemGroup>
 
