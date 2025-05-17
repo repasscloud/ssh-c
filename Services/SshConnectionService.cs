@@ -9,7 +9,7 @@ public class SshConnectionService
 {
     public void Connect(SshHostConfig config, bool verbose = false)
     {
-        var args = $"-p {config.Port} {config.User}@{config.Host}";
+        var args = $"-tt -p {config.Port} {config.User}@{config.Host}";
 
         if (config.Auth.Type == "cert" && !string.IsNullOrWhiteSpace(config.Auth.IdentityFile))
         {
@@ -18,7 +18,7 @@ public class SshConnectionService
 
         if (verbose)
         {
-            Console.WriteLine($"ssh {args}");
+            Console.WriteLine($"/usr/bin/ssh {args}");
         }
 
         var psi = new ProcessStartInfo
@@ -26,10 +26,17 @@ public class SshConnectionService
             FileName = "/usr/bin/ssh",
             Arguments = args,
             UseShellExecute = false,
-            WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            RedirectStandardInput = false,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false,
+            WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         };
 
-        Process.Start(psi);
+        psi.EnvironmentVariables["TERM"] = "xterm-256color";
+
+        using var process = new Process { StartInfo = psi };
+        process.Start();
+        process.WaitForExit();
     }
 
     private string ExpandPath(string path) =>
