@@ -47,9 +47,19 @@ echo "✅ Updated version in $CSProjFile → $newVersion"
 # Set script root dir
 SCRIPT_DIR=$(cd -- "$(dirname -- "${(%):-%x}")" &> /dev/null && pwd)
 
-# Update git repo
+## Make sure we're on dev branch
+git checkout dev
+
+# Add and commit version bump
 git add "$SCRIPT_DIR"
 git commit -m "🔧 Bumping version: $currentVersion → $newVersion"
-git push -u origin main
-git tag -s "v$newVersion" -m "Release v$newVersion" && git push origin "v$newVersion" && \
+
+# Rebase if needed (to avoid non-fast-forward)
+git pull --rebase origin dev
+
+# Push commit and tag
+git push -u origin dev
+git tag -s "v$newVersion" -m "Release v$newVersion"
+git push origin "v$newVersion"
+
 echo "🔖 Tagged and pushed release: https://github.com/repasscloud/ssh-c/releases/tag/v$newVersion"
