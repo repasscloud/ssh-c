@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.0.8</Version>
+    <Version>0.1.0</Version>
     <AssemblyName>com.repasscloud.ssh-c</AssemblyName>
     <ApplicationId>com.repasscloud.ssh-c</ApplicationId>
     <MacOSBundleIdentifier>com.repasscloud.ssh-c</MacOSBundleIdentifier>
