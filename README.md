@@ -27,7 +27,7 @@
 ### 🧼 macOS / Linux
 
 ```bash
-curl -LO https://github.com/<your-org>/ssh-c/releases/latest/download/install.sh
+curl -LO https://raw.githubusercontent.com/repasscloud/ssh-c/refs/heads/main/scripts/install.sh
 chmod +x install.sh
 ./install.sh
 ```
@@ -35,7 +35,7 @@ chmod +x install.sh
 ### 🪟 Windows (PowerShell)
 
 ```powershell
-iwr https://github.com/<your-org>/ssh-c/releases/latest/download/install.ps1 -OutFile install.ps1
+iwr https://raw.githubusercontent.com/repasscloud/ssh-c/refs/heads/main/scripts/install.ps1 -OutFile install.ps1
 ./install.ps1
 ```
 
