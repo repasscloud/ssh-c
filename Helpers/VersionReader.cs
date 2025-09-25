@@ -4,6 +4,8 @@ using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
+using ssh_c.Helpers; // for AppJsonContext
+using ssh_c.Models;
 
 namespace ssh_c.Helpers;
 
@@ -28,14 +30,31 @@ public static class VersionReader
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ssh-c", currentVersion));
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
 
             using var response = await client.GetAsync(GitHubApiUrl);
             response.EnsureSuccessStatusCode();
 
             using var stream = await response.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
 
-            var latestTag = doc.RootElement.GetProperty("tag_name").GetString()?.Trim();
+            // Typed or fallback to JSON doc
+            GitHubRelease? release = null;
+            try
+            {
+                release = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.GitHubRelease);
+            }
+            catch { /* fall back below if needed */ }
+
+            var latestTag = release?.TagName;
+
+            if (string.IsNullOrWhiteSpace(latestTag))
+            {
+                // fallback parse
+                stream.Position = 0;
+                using var doc = await JsonDocument.ParseAsync(stream);
+                latestTag = doc.RootElement.GetProperty("tag_name").GetString();
+            }
 
             if (string.IsNullOrWhiteSpace(latestTag))
             {
@@ -43,9 +62,9 @@ public static class VersionReader
             }
             else
             {
-                var latestVersion = latestTag.TrimStart('v');
+                var latestVersion = latestTag!.Trim().TrimStart('v');
 
-                if (currentVersion != latestVersion)
+                if (!currentVersion.Equals(latestVersion, StringComparison.OrdinalIgnoreCase))
                 {
                     Console.WriteLine($"⬆️  Update available: v{latestVersion} (you have v{currentVersion})");
                     Console.WriteLine("🔗 https://github.com/repasscloud/ssh-c/releases/latest");
