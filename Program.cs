@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace ssh_c;
 
-public class Program
+public static class Program
 {
     public static async Task Main(string[] args)
     {
@@ -36,6 +36,8 @@ public class Program
                 WriteLine($@"
 {Ansi.Header("🛡️  ssh-c CLI")}
 {Ansi.Subtle("Version:")}     v{version}
+{Ansi.Subtle("Runtime:")}     Native AOT
+{Ansi.Subtle("Platform:")}    {System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier}
 {Ansi.Subtle("Copyright:")}   © {DateTime.UtcNow.Year} Repass Cloud
 {Ansi.Subtle("License:")}     MIT
 {Ansi.Subtle("Website:")}     https://github.com/repasscloud/ssh-c

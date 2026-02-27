@@ -4,7 +4,6 @@ using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
-using ssh_c.Helpers; // for AppJsonContext
 using ssh_c.Models;
 
 namespace ssh_c.Helpers;
@@ -36,23 +35,21 @@ public static class VersionReader
             using var response = await client.GetAsync(GitHubApiUrl);
             response.EnsureSuccessStatusCode();
 
-            using var stream = await response.Content.ReadAsStreamAsync();
+            var json = await response.Content.ReadAsStringAsync();
 
-            // Typed or fallback to JSON doc
             GitHubRelease? release = null;
+
             try
             {
-                release = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.GitHubRelease);
+                release = JsonSerializer.Deserialize(json, AppJsonContext.Default.GitHubRelease);
             }
-            catch { /* fall back below if needed */ }
+            catch { }
 
             var latestTag = release?.TagName;
 
             if (string.IsNullOrWhiteSpace(latestTag))
             {
-                // fallback parse
-                stream.Position = 0;
-                using var doc = await JsonDocument.ParseAsync(stream);
+                using var doc = JsonDocument.Parse(json);
                 latestTag = doc.RootElement.GetProperty("tag_name").GetString();
             }
 
