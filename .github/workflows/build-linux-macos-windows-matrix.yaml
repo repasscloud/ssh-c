@@ -1,101 +1,101 @@
-name: Build Linux/macOS/Windows Binaries
+# name: Build Linux/macOS/Windows Binaries
 
-on:
-  push:
-    branches: [ dev ]
-  workflow_dispatch:
+# on:
+#   push:
+#     branches: [ dev ]
+#   workflow_dispatch:
 
-jobs:
-  build-all:
-    name: Build for ${{ matrix.runtime }}
-    runs-on: ubuntu-latest
+# jobs:
+#   build-all:
+#     name: Build for ${{ matrix.runtime }}
+#     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        runtime:
-          - linux-x64
-          - linux-musl-x64
-          - linux-musl-arm64
-          - linux-arm
-          - linux-arm64
-          - osx-x64
-          - osx-arm64
-          - win-x64
-          - win-x86
-          - win-arm64
+#     strategy:
+#       matrix:
+#         runtime:
+#           - linux-x64
+#           - linux-musl-x64
+#           - linux-musl-arm64
+#           - linux-arm
+#           - linux-arm64
+#           - osx-x64
+#           - osx-arm64
+#           - win-x64
+#           - win-x86
+#           - win-arm64
 
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout source
+#         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
+#       - name: Setup .NET
+#         uses: actions/setup-dotnet@v4
+#         with:
+#           dotnet-version: '9.0.x'
 
-      - name: Restore dependencies
-        run: dotnet restore
+#       - name: Restore dependencies
+#         run: dotnet restore
 
-      - name: Publish ${{ matrix.runtime }} Binary
-        run: >
-          dotnet publish ssh-c.csproj
-          -c Release
-          -r ${{ matrix.runtime }}
-          --self-contained true
-          -p:PublishSingleFile=true
-          -p:PublishTrimmed=true
-          -p:EnableCompressionInSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -o publish/${{ matrix.runtime }}
+#       - name: Publish ${{ matrix.runtime }} Binary
+#         run: >
+#           dotnet publish ssh-c.csproj
+#           -c Release
+#           -r ${{ matrix.runtime }}
+#           --self-contained true
+#           -p:PublishSingleFile=true
+#           -p:PublishTrimmed=true
+#           -p:EnableCompressionInSingleFile=true
+#           -p:IncludeNativeLibrariesForSelfExtract=true
+#           -o publish/${{ matrix.runtime }}
 
-      - name: Rename published binary to ssh-c or ssh-c.exe
-        run: |
-          path=publish/${{ matrix.runtime }}
-          if [ -f "$path/com.repasscloud.ssh-c" ]; then
-            mv "$path/com.repasscloud.ssh-c" "$path/ssh-c"
-          elif [ -f "$path/com.repasscloud.ssh-c.exe" ]; then
-            mv "$path/com.repasscloud.ssh-c.exe" "$path/ssh-c.exe"
-          else
-            echo "❌ No output binary found to rename."
-            exit 1
-          fi
+#       - name: Rename published binary to ssh-c or ssh-c.exe
+#         run: |
+#           path=publish/${{ matrix.runtime }}
+#           if [ -f "$path/com.repasscloud.ssh-c" ]; then
+#             mv "$path/com.repasscloud.ssh-c" "$path/ssh-c"
+#           elif [ -f "$path/com.repasscloud.ssh-c.exe" ]; then
+#             mv "$path/com.repasscloud.ssh-c.exe" "$path/ssh-c.exe"
+#           else
+#             echo "❌ No output binary found to rename."
+#             exit 1
+#           fi
 
-      - name: Make binary executable (non-Windows only)
-        run: |
-          path=publish/${{ matrix.runtime }}
-          if [ -f "$path/ssh-c" ]; then
-            chmod +x "$path/ssh-c"
-          fi
+#       - name: Make binary executable (non-Windows only)
+#         run: |
+#           path=publish/${{ matrix.runtime }}
+#           if [ -f "$path/ssh-c" ]; then
+#             chmod +x "$path/ssh-c"
+#           fi
 
-      - name: Verify binary format
-        run: |
-          path=publish/${{ matrix.runtime }}
-          if [ -f "$path/ssh-c" ]; then
-            file "$path/ssh-c"
-          elif [ -f "$path/ssh-c.exe" ]; then
-            file "$path/ssh-c.exe"
-          fi
+#       - name: Verify binary format
+#         run: |
+#           path=publish/${{ matrix.runtime }}
+#           if [ -f "$path/ssh-c" ]; then
+#             file "$path/ssh-c"
+#           elif [ -f "$path/ssh-c.exe" ]; then
+#             file "$path/ssh-c.exe"
+#           fi
 
-      - name: Generate SHA256 checksum
-        run: |
-          path=publish/${{ matrix.runtime }}
-          if [ -f "$path/ssh-c" ]; then
-            sha256sum "$path/ssh-c" > "$path/ssh-c_${{ matrix.runtime }}.sha256"
-          elif [ -f "$path/ssh-c.exe" ]; then
-            sha256sum "$path/ssh-c.exe" > "$path/ssh-c_${{ matrix.runtime }}.sha256"
-          fi
+#       - name: Generate SHA256 checksum
+#         run: |
+#           path=publish/${{ matrix.runtime }}
+#           if [ -f "$path/ssh-c" ]; then
+#             sha256sum "$path/ssh-c" > "$path/ssh-c_${{ matrix.runtime }}.sha256"
+#           elif [ -f "$path/ssh-c.exe" ]; then
+#             sha256sum "$path/ssh-c.exe" > "$path/ssh-c_${{ matrix.runtime }}.sha256"
+#           fi
 
-      - name: Zip binary and checksum
-        run: |
-          cd publish/${{ matrix.runtime }}
-          if [ -f ssh-c ]; then
-            zip ssh-c_${{ matrix.runtime }}.zip ssh-c ssh-c_${{ matrix.runtime }}.sha256
-          elif [ -f ssh-c.exe ]; then
-            zip ssh-c_${{ matrix.runtime }}.zip ssh-c.exe ssh-c_${{ matrix.runtime }}.sha256
-          fi
+#       - name: Zip binary and checksum
+#         run: |
+#           cd publish/${{ matrix.runtime }}
+#           if [ -f ssh-c ]; then
+#             zip ssh-c_${{ matrix.runtime }}.zip ssh-c ssh-c_${{ matrix.runtime }}.sha256
+#           elif [ -f ssh-c.exe ]; then
+#             zip ssh-c_${{ matrix.runtime }}.zip ssh-c.exe ssh-c_${{ matrix.runtime }}.sha256
+#           fi
 
-      - name: Upload Zipped Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ssh-c-${{ matrix.runtime }}-unsigned
-          path: publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.zip
+#       - name: Upload Zipped Artifacts
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: ssh-c-${{ matrix.runtime }}-unsigned
+#           path: publish/${{ matrix.runtime }}/ssh-c_${{ matrix.runtime }}.zip

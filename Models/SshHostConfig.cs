@@ -2,9 +2,9 @@
 namespace ssh_c.Models;
 public class SshHostConfig
 {
-    public string Name { get; set; } = "";
-    public string User { get; set; } = "";
-    public string Host { get; set; } = "";
+    public string Name { get; set; } = string.Empty;
+    public string User { get; set; } = string.Empty;
+    public string Host { get; set; } = string.Empty;
     public int Port { get; set; } = 22;
     public AuthConfig Auth { get; set; } = new();
 

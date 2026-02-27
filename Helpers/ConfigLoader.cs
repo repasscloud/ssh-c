@@ -10,14 +10,36 @@ namespace ssh_c.Helpers;
 
 public static class ConfigLoader
 {
-    private static readonly string ConfigDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".shh-c");
+    private static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
+    // ✅ Correct location
+    private static readonly string ConfigDir = Path.Combine(Home, ".ssh-c");
     private static readonly string ConfigPath = Path.Combine(ConfigDir, "config.json");
+
+    // ⛑️ Migration support from the old accidental path ".shh-c"
+    private static readonly string OldConfigDir = Path.Combine(Home, ".shh-c");
+    private static readonly string OldConfigPath = Path.Combine(OldConfigDir, "config.json");
+
+    private static void EnsureMigrated()
+    {
+        try
+        {
+            if (!File.Exists(ConfigPath) && File.Exists(OldConfigPath))
+            {
+                Directory.CreateDirectory(ConfigDir);
+                File.Move(OldConfigPath, ConfigPath, overwrite: true);
+                // Clean up old empty dir if possible
+                try { if (Directory.Exists(OldConfigDir) && !Directory.EnumerateFileSystemEntries(OldConfigDir).Any()) Directory.Delete(OldConfigDir); } catch { /* ignore */ }
+                Console.WriteLine("ℹ️  Migrated ssh-c config from ~/.shh-c to ~/.ssh-c");
+            }
+        }
+        catch { /* non-fatal */ }
+    }
 
     public static List<SshHostConfig> LoadConfig()
     {
+        EnsureMigrated();
+
         if (!File.Exists(ConfigPath))
             return new List<SshHostConfig>();
 
@@ -35,6 +57,8 @@ public static class ConfigLoader
 
     public static void SaveConfig(List<SshHostConfig> allHosts)
     {
+        EnsureMigrated();
+
         var json = JsonSerializer.Serialize(new ConfigRoot { Hosts = allHosts }, AppJsonContext.Default.ConfigRoot);
         Directory.CreateDirectory(ConfigDir);
         File.WriteAllText(ConfigPath, json);
@@ -49,6 +73,7 @@ public static class ConfigLoader
 
         allHosts.Add(newHost);
         SaveConfig(allHosts);
+        Console.WriteLine($"✅ Added config for '{newHost.Name}'");
     }
 
     public static void RemoveHost(string name)
@@ -61,9 +86,20 @@ public static class ConfigLoader
     public static void ListHosts()
     {
         var allHosts = LoadConfig();
-        foreach (var host in allHosts)
+        if (allHosts.Count == 0)
         {
-            Console.WriteLine($"{host.Name} → {host.User}@{host.Host}:{host.Port} ({host.Auth.Type})");
+            Console.WriteLine($"{Ansi.Subtle("No hosts saved. Use")} {Ansi.Option("--add")} {Ansi.Subtle("to create one.")}");
+            return;
+        }
+
+        var nameWidth = Math.Max(5, allHosts.Max(h => h.Name.Length));
+        foreach (var host in allHosts.OrderBy(h => h.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var left = Ansi.Command(host.Name.PadRight(nameWidth));
+            var arrow = Ansi.Subtle(" → ");
+            var right = $"{Ansi.Placeholder($"{host.User}@{host.Host}")}:{Ansi.Placeholder(host.Port.ToString())}";
+            var auth = Ansi.Subtle($" ({host.Auth.Type})");
+            Console.WriteLine($"{left}{arrow}{right}{auth}");
         }
     }
 
@@ -76,11 +112,14 @@ public static class ConfigLoader
             return;
         }
 
-        var cmd = $"ssh";
+        string ExpandPath(string p) =>
+            string.IsNullOrWhiteSpace(p) ? p : p.Replace("~", Home);
+
+        var cmd = "ssh";
 
         if (host.Auth.Type == "cert" && !string.IsNullOrWhiteSpace(host.Auth.IdentityFile))
         {
-            cmd += $" -i {host.Auth.IdentityFile}";
+            cmd += $" -i {ExpandPath(host.Auth.IdentityFile!)}";
         }
 
         cmd += $" -p {host.Port} {host.User}@{host.Host}";
@@ -113,7 +152,9 @@ public static class ConfigLoader
         }
 
         string Require(string key) =>
-            dict.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val) ? val : throw new ArgumentException($"Missing or empty required parameter: {key}");
+            dict.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val)
+                ? val
+                : throw new ArgumentException($"Missing or empty required parameter: {key}");
 
         var name = Require("--name");
         var host = Require("--host");
@@ -140,6 +181,5 @@ public static class ConfigLoader
         };
 
         SaveHostConfig(newHost);
-        Console.WriteLine($"✅ Added config for '{name}'");
     }
 }
