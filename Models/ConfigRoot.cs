@@ -5,5 +5,5 @@ namespace ssh_c.Models;
 
 public class ConfigRoot
 {
-    public List<SshHostConfig>? Hosts { get; set; }
+    public List<SshHostConfig> Hosts { get; set; } = [];
 }
