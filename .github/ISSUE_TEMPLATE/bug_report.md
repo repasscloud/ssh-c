@@ -21,7 +21,7 @@ What actually happened.
 ### Environment
 - OS: [e.g. Windows 10, macOS 14.1]
 - ssh-c version: [e.g. 1.3.0]
-- .NET version: [e.g. 9.0.100]
+- .NET version: [e.g. net10.0]
 
 ### Additional Context
 Add any other context about the problem here, including logs or screenshots if applicable.
