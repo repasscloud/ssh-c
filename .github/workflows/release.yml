@@ -1,0 +1,281 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build (e.g. v1.1.0) — must already exist on main'
+        required: true
+        type: string
+
+jobs:
+  build:
+    name: Build (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            os: ubuntu-latest
+            apt: zlib1g-dev
+            cc: ''
+            strip: ''
+          - rid: linux-arm
+            os: ubuntu-latest
+            apt: gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf zlib1g-dev
+            cc: arm-linux-gnueabihf-gcc
+            strip: arm-linux-gnueabihf-strip
+          - rid: linux-arm64
+            os: ubuntu-latest
+            apt: gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu zlib1g-dev
+            cc: aarch64-linux-gnu-gcc
+            strip: aarch64-linux-gnu-strip
+          - rid: linux-musl-x64
+            os: ubuntu-latest
+            apt: musl-tools zlib1g-dev
+            cc: musl-gcc
+            strip: strip
+          - rid: linux-musl-arm64
+            os: ubuntu-latest
+            apt: zlib1g-dev
+            cc: aarch64-linux-musl-gcc
+            strip: aarch64-linux-musl-strip
+          - rid: osx-x64
+            os: macos-13
+            apt: ''
+            cc: ''
+            strip: ''
+          - rid: osx-arm64
+            os: macos-latest
+            apt: ''
+            cc: ''
+            strip: ''
+          - rid: win-x64
+            os: windows-latest
+            apt: ''
+            cc: ''
+            strip: ''
+          - rid: win-arm64
+            os: windows-latest
+            apt: ''
+            cc: ''
+            strip: ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install apt packages
+        if: matrix.apt != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt }}
+
+      - name: Install musl arm64 cross-compiler
+        if: matrix.rid == 'linux-musl-arm64'
+        run: |
+          curl -sSL https://musl.cc/aarch64-linux-musl-cross.tgz | tar -xz -C "$HOME"
+          echo "$HOME/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+
+      - name: Publish
+        shell: bash
+        env:
+          CC: ${{ matrix.cc }}
+          STRIP: ${{ matrix.strip }}
+        run: |
+          dotnet publish ssh-c.csproj \
+            -r ${{ matrix.rid }} \
+            -c Release \
+            -p:RuntimeIdentifier=${{ matrix.rid }}
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep -oP '(?<=<Version>)[^<]+' ssh-c.csproj)
+          echo "value=$version" >> $GITHUB_OUTPUT
+
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          publish_dir="bin/Release/net10.0/${{ matrix.rid }}/publish"
+          zip_name="ssh-c-${{ steps.version.outputs.value }}-${{ matrix.rid }}.zip"
+          zip -j "$zip_name" "$publish_dir/ssh-c"
+          echo "ZIP=$zip_name" >> $GITHUB_ENV
+
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $publishDir = "bin/Release/net10.0/${{ matrix.rid }}/publish"
+          $zipName = "ssh-c-${{ steps.version.outputs.value }}-${{ matrix.rid }}.zip"
+          Compress-Archive -Path "$publishDir/ssh-c.exe" -DestinationPath $zipName
+          "ZIP=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssh-c-${{ matrix.rid }}
+          path: ${{ env.ZIP }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.name }}
+      version: ${{ steps.version.outputs.value }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+          fetch-depth: 0
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep -oP '(?<=<Version>)[^<]+' ssh-c.csproj)
+          echo "value=$version" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        run: |
+          version=${{ steps.version.outputs.value }}
+          awk "/^## \[$version\]/,/^## \[/" CHANGELOG.md \
+            | head -n -1 \
+            | tail -n +2 \
+            > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "Release $version" > RELEASE_NOTES.md
+          fi
+
+      - name: Generate changelog (github-changelog-generator)
+        if: env.CHANGELOG_TOKEN != ''
+        env:
+          CHANGELOG_TOKEN: ${{ secrets.CHANGELOG_GITHUB_TOKEN }}
+        run: |
+          gem install github_changelog_generator --quiet --no-document
+          prev_tag=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          github_changelog_generator \
+            --user repasscloud \
+            --project ssh-c \
+            --token "$CHANGELOG_TOKEN" \
+            --output RELEASE_NOTES.md \
+            --no-unreleased \
+            $( [ -n "$prev_tag" ] && echo "--since-tag $prev_tag" )
+
+      - name: Resolve tag name
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.tag.outputs.name }}
+          body_path: RELEASE_NOTES.md
+          files: dist/*.zip
+          draft: false
+          prerelease: false
+
+  update-homebrew:
+    name: Update Homebrew Tap
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.release.outputs.tag }}
+      VERSION: ${{ needs.release.outputs.version }}
+
+    steps:
+      - name: Download macOS release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$TAG" \
+            --repo repasscloud/ssh-c \
+            --pattern "ssh-c-*-osx-*.zip" \
+            --dir zips
+
+      - name: Compute SHA256
+        id: sha
+        run: |
+          arm64=$(sha256sum "zips/ssh-c-${VERSION}-osx-arm64.zip" | awk '{print $1}')
+          x64=$(sha256sum "zips/ssh-c-${VERSION}-osx-x64.zip" | awk '{print $1}')
+          echo "arm64=$arm64" >> $GITHUB_OUTPUT
+          echo "x64=$x64" >> $GITHUB_OUTPUT
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: repasscloud/homebrew-ssh-c
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Update formula
+        run: |
+          cat > tap/Formula/ssh-c.rb << FORMULA
+          class SshC < Formula
+            desc "Lightweight SSH connection manager"
+            homepage "https://github.com/repasscloud/ssh-c"
+            license "MIT"
+            version "${VERSION}"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/repasscloud/ssh-c/releases/download/${TAG}/ssh-c-${VERSION}-osx-arm64.zip"
+                sha256 "${{ steps.sha.outputs.arm64 }}"
+              end
+              on_intel do
+                url "https://github.com/repasscloud/ssh-c/releases/download/${TAG}/ssh-c-${VERSION}-osx-x64.zip"
+                sha256 "${{ steps.sha.outputs.x64 }}"
+              end
+            end
+
+            def install
+              bin.install "ssh-c"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/ssh-c --version")
+            end
+          end
+          FORMULA
+
+      - name: Commit and push
+        run: |
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/ssh-c.rb
+          git commit -m "Update ssh-c to ${VERSION}"
+          git push
