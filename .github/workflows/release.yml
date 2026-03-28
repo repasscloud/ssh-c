@@ -22,48 +22,50 @@ jobs:
           - rid: linux-x64
             os: ubuntu-latest
             apt: zlib1g-dev
-            cc: ''
-            strip: ''
+            extra_flags: ''
+
           - rid: linux-arm
             os: ubuntu-latest
-            apt: gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf zlib1g-dev
-            cc: arm-linux-gnueabihf-gcc
-            strip: arm-linux-gnueabihf-strip
+            apt: gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf lld zlib1g-dev
+            extra_flags: >-
+              -p:CppLinker=arm-linux-gnueabihf-gcc
+              -p:LinkerFlavor=lld
+              -p:ObjCopyName=arm-linux-gnueabihf-objcopy
+
           - rid: linux-arm64
-            os: ubuntu-latest
-            apt: gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu zlib1g-dev
-            cc: aarch64-linux-gnu-gcc
-            strip: aarch64-linux-gnu-strip
+            os: ubuntu-24.04-arm
+            apt: zlib1g-dev
+            extra_flags: ''
+
           - rid: linux-musl-x64
             os: ubuntu-latest
             apt: musl-tools zlib1g-dev
-            cc: musl-gcc
-            strip: strip
+            extra_flags: -p:CppLinker=musl-gcc
+
           - rid: linux-musl-arm64
-            os: ubuntu-latest
-            apt: zlib1g-dev
-            cc: aarch64-linux-musl-gcc
-            strip: aarch64-linux-musl-strip
+            os: ubuntu-24.04-arm
+            apt: musl-tools zlib1g-dev
+            extra_flags: -p:CppLinker=musl-gcc
+
           - rid: osx-x64
             os: macos-latest
             apt: ''
-            cc: ''
-            strip: ''
+            extra_flags: ''
+
           - rid: osx-arm64
             os: macos-latest
             apt: ''
-            cc: ''
-            strip: ''
+            extra_flags: ''
+
           - rid: win-x64
             os: windows-latest
             apt: ''
-            cc: ''
-            strip: ''
+            extra_flags: ''
+
           - rid: win-arm64
             os: windows-latest
             apt: ''
-            cc: ''
-            strip: ''
+            extra_flags: ''
 
     steps:
       - name: Checkout
@@ -82,28 +84,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.apt }}
 
-      - name: Install musl arm64 cross-compiler
-        if: matrix.rid == 'linux-musl-arm64'
-        run: |
-          curl -sSL https://musl.cc/aarch64-linux-musl-cross.tgz | tar -xz -C "$HOME"
-          echo "$HOME/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
-
       - name: Publish
         shell: bash
-        env:
-          CC: ${{ matrix.cc }}
-          STRIP: ${{ matrix.strip }}
         run: |
           dotnet publish ssh-c.csproj \
             -r ${{ matrix.rid }} \
             -c Release \
-            -p:RuntimeIdentifier=${{ matrix.rid }}
+            -p:RuntimeIdentifier=${{ matrix.rid }} \
+            ${{ matrix.extra_flags }}
 
       - name: Get version
         id: version
         shell: bash
         run: |
-          version=$(grep -oP '(?<=<Version>)[^<]+' ssh-c.csproj)
+          version=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' ssh-c.csproj | head -1)
           echo "value=$version" >> $GITHUB_OUTPUT
 
       - name: Package binary (Unix)
@@ -151,7 +145,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          version=$(grep -oP '(?<=<Version>)[^<]+' ssh-c.csproj)
+          version=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' ssh-c.csproj | head -1)
           echo "value=$version" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
@@ -161,7 +155,6 @@ jobs:
           merge-multiple: true
 
       - name: Extract release notes from CHANGELOG.md
-        id: notes
         shell: bash
         run: |
           version=${{ steps.version.outputs.value }}
