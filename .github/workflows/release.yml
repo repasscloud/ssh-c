@@ -45,7 +45,7 @@ jobs:
             cc: aarch64-linux-musl-gcc
             strip: aarch64-linux-musl-strip
           - rid: osx-x64
-            os: macos-13
+            os: macos-latest
             apt: ''
             cc: ''
             strip: ''
